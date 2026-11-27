@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Checks this fork's t3 branch: both pstack trees are fresh, the branch changes only the T3 layer, and the tests pass.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+UPSTREAM_REF="${UPSTREAM_REF:-origin/main}"
+cd "$ROOT"
+
+node scripts/generate-pstack-harness-trees.mjs --check
+node scripts/generate-pstack-t3-tree.mjs --check --overlay t3-local
+
+if ! git rev-parse --verify --quiet "$UPSTREAM_REF^{commit}" >/dev/null; then
+  printf 'FAIL no %s ref: fetch it, or set UPSTREAM_REF to the cursor/plugins main you synced\n' "$UPSTREAM_REF"
+  exit 1
+fi
+# Paths the T3 layer may add or change. Everything else, every other pstack/ file included, stays upstream's.
+allowed='^(pstack/docs/harness/t3\.md|scripts/generate-pstack-t3-tree\.mjs|scripts/generate-pstack-harness-trees\.mjs|scripts/test/.*|harness/pstack/.*|t3-local/.*|\.github/workflows/validate-plugins\.yml)$'
+changed="$( (git diff --name-only "$UPSTREAM_REF"...HEAD; git status --porcelain --untracked-files=all | cut -c4-) | sort -u | grep -Ev "$allowed" || true)"
+if [[ -n "$changed" ]]; then
+  printf 'FAIL these files differ from %s outside the T3 layer. Put a local change in t3-local/patches instead:\n%s\n' "$UPSTREAM_REF" "$changed"
+  exit 1
+fi
+printf 'only T3 layer files differ from %s\n' "$UPSTREAM_REF"
+
+PSTACK_T3_OVERLAY=t3-local node --test scripts/test/*.test.mjs t3-local/test/*.test.mjs
