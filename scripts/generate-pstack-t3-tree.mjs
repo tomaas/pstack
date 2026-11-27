@@ -3,21 +3,34 @@
 // generate-pstack-harness-trees.mjs, which owns harness/pstack/README.md and harness/pstack/claude-code/.
 
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, posix, relative } from "node:path";
+import { dirname, join, posix, relative, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PSTACK = join(ROOT, "pstack");
 const SKILLS = join(PSTACK, "skills");
-// A fork's own changes, never part of an upstream run: t3-local/patches and t3-local/extra.
-const LOCAL = join(ROOT, "t3-local");
-const PATCHES = join(LOCAL, "patches");
-const EXTRA = join(LOCAL, "extra");
+// An optional overlay of local changes, <overlay>/patches and <overlay>/extra, that a fork keeps out of upstream.
+// Off by default. `--overlay <dir>`, else PSTACK_T3_OVERLAY, names it relative to the repository root.
+const args = process.argv.slice(2);
+const flag = args.indexOf("--overlay");
+if (flag >= 0 && !args[flag + 1]) {
+  console.log("FAIL --overlay needs a folder");
+  process.exit(64);
+}
+const OVERLAY = (flag >= 0 ? args[flag + 1] : process.env.PSTACK_T3_OVERLAY) || undefined;
+const OVERLAY_DIR = OVERLAY && resolvePath(ROOT, OVERLAY);
+if (OVERLAY_DIR && !existsSync(OVERLAY_DIR)) {
+  console.log(`FAIL no overlay folder at ${OVERLAY}`);
+  process.exit(1);
+}
+const OVERLAY_NAME = OVERLAY_DIR && (relative(ROOT, OVERLAY_DIR) || ".");
+const PATCHES = OVERLAY_DIR && join(OVERLAY_DIR, "patches");
+const EXTRA = OVERLAY_DIR && join(OVERLAY_DIR, "extra");
 const OUT = join(ROOT, "harness", "pstack", "t3");
 const CLAUDE_ADAPTER = "docs/harness/claude-code.md";
 const T3_ADAPTER = "docs/harness/t3.md";
 const GUIDE = "docs/guide";
-const COMMAND = "node scripts/generate-pstack-t3-tree.mjs";
+const COMMAND = `node scripts/generate-pstack-t3-tree.mjs${OVERLAY_NAME ? ` --overlay ${OVERLAY_NAME}` : ""}`;
 const GITHUB = "https://github.com/cursor/plugins";
 const LINK = /\]\(([^)\s]+)\)/g;
 
@@ -108,10 +121,10 @@ const sources = new Map(
   ].map((path) => [relative(PSTACK, path), file(path)]),
 );
 
-// Extras: skills from other cursor/plugins plugins that pstack runs, vendored verbatim under t3-local/extra/<name>/ (see t3-local/extra/SOURCES).
+// Extras: skills from other cursor/plugins plugins that pstack runs, vendored verbatim under <overlay>/extra/<name>/.
 // Each renders to skills/<name>/ in the tree, and its plugin's license file next to the tree's LICENSE.
 const extras = [];
-if (existsSync(EXTRA)) {
+if (EXTRA && existsSync(EXTRA)) {
   for (const entry of readdirSync(EXTRA).sort()) {
     const dir = join(EXTRA, entry);
     if (!statSync(dir).isDirectory()) {
@@ -119,11 +132,11 @@ if (existsSync(EXTRA)) {
       continue;
     }
     if (!existsSync(join(dir, "SKILL.md"))) {
-      fail(`t3-local/extra/${entry} has no SKILL.md`);
+      fail(`${OVERLAY_NAME}/extra/${entry} has no SKILL.md`);
       continue;
     }
     if (existsSync(join(SKILLS, entry))) {
-      fail(`t3-local/extra/${entry} has the name of an upstream skill, skills/${entry}`);
+      fail(`${OVERLAY_NAME}/extra/${entry} has the name of an upstream skill, skills/${entry}`);
       continue;
     }
     extras.push(entry);
@@ -137,23 +150,23 @@ stopOnProblems();
 function applyPatch(name, patch) {
   const lines = patch.split("\n");
   const start = lines.findIndex((line) => line.startsWith("--- a/"));
-  if (start < 0 || !lines[start + 1]?.startsWith("+++ b/")) return fail(`t3-local/patches/${name} has no --- a/ and +++ b/ lines`);
-  if (start === 0 || !lines.slice(0, start).some((line) => line.trim())) return fail(`t3-local/patches/${name} has no header saying why`);
+  if (start < 0 || !lines[start + 1]?.startsWith("+++ b/")) return fail(`${OVERLAY_NAME}/patches/${name} has no --- a/ and +++ b/ lines`);
+  if (start === 0 || !lines.slice(0, start).some((line) => line.trim())) return fail(`${OVERLAY_NAME}/patches/${name} has no header saying why`);
   const path = lines[start].slice(6);
-  if (lines[start + 1].slice(6) !== path) return fail(`t3-local/patches/${name} patches two paths`);
+  if (lines[start + 1].slice(6) !== path) return fail(`${OVERLAY_NAME}/patches/${name} patches two paths`);
   const entry = sources.get(path);
-  if (!entry) return fail(`t3-local/patches/${name} patches ${path}, which is not a tree source`);
+  if (!entry) return fail(`${OVERLAY_NAME}/patches/${name} patches ${path}, which is not a tree source`);
   const target = entry.bytes.toString("utf8").split("\n");
   let offset = 0;
   let i = start + 2;
   while (i < lines.length) {
-    const head = lines[i].match(/^@@ -(\d+)(?:,(\d+))? \+\d+(?:,\d+)? @@/);
+    const head = lines[i].match(/^@@ -(\d+)(?:,(\d+))? \+\d+(?:,(\d+))? @@/);
     if (!head) {
       if (lines[i] === "") {
         i++;
         continue;
       }
-      return fail(`t3-local/patches/${name} line ${i + 1} is not a hunk header`);
+      return fail(`${OVERLAY_NAME}/patches/${name} line ${i + 1} is not a hunk header`);
     }
     i++;
     const before = [];
@@ -171,13 +184,19 @@ function applyPatch(name, patch) {
       const [mark, rest] = [line[0], line.slice(1)];
       if (mark === " " || mark === "-") before.push(rest);
       if (mark === " " || mark === "+") after.push(rest);
-      if (![" ", "-", "+"].includes(mark)) return fail(`t3-local/patches/${name} line ${i + 1} has no diff mark`);
+      if (![" ", "-", "+"].includes(mark)) return fail(`${OVERLAY_NAME}/patches/${name} line ${i + 1} has no diff mark`);
       i++;
+    }
+    const [oldCount, newCount] = [Number(head[2] ?? 1), Number(head[3] ?? 1)];
+    if (before.length !== oldCount || after.length !== newCount) {
+      return fail(
+        `${OVERLAY_NAME}/patches/${name} hunk at line ${head[1]} has ${before.length} old and ${after.length} new lines, but its header says ${oldCount} and ${newCount}`,
+      );
     }
     const at = Number(head[1]) - 1 + offset - (before.length === 0 ? -1 : 0);
     const found = target.slice(at, at + before.length);
     if (found.length !== before.length || found.some((line, k) => line !== before[k])) {
-      return fail(`t3-local/patches/${name} no longer applies to ${path} at line ${head[1]}: the source changed. Rework the patch.`);
+      return fail(`${OVERLAY_NAME}/patches/${name} no longer applies to ${path} at line ${head[1]}: the source changed. Rework the patch.`);
     }
     target.splice(at, before.length, ...after);
     offset += after.length - before.length;
@@ -187,7 +206,7 @@ function applyPatch(name, patch) {
 }
 
 const patched = [];
-if (existsSync(PATCHES)) {
+if (PATCHES && existsSync(PATCHES)) {
   for (const name of readdirSync(PATCHES).filter((name) => name.endsWith(".patch")).sort()) {
     const path = applyPatch(name, readFileSync(join(PATCHES, name), "utf8"));
     if (path) patched.push(`${name} -> ${path}`);
@@ -293,10 +312,9 @@ for (const [path, entry] of sources) {
   entry.bytes = Buffer.from(text);
 }
 
-const local =
-  patched.length + extras.length > 0
-    ? ` It also carries this fork's patches from \`t3-local/patches\` and the vendored skills in \`t3-local/extra\` (see \`t3-local/extra/SOURCES\`).`
-    : "";
+const local = OVERLAY_NAME
+  ? ` It also carries the local overlay \`${OVERLAY_NAME}\`: ${patched.length} patches from \`${OVERLAY_NAME}/patches\` and ${extras.length} extras from \`${OVERLAY_NAME}/extra\`.`
+  : "";
 const generated = `# pstack T3 Code tree
 
 This folder is generated from \`pstack/skills\`, \`pstack/agents\`, \`pstack/${GUIDE}\`, \`pstack/${CLAUDE_ADAPTER}\`, \`pstack/${T3_ADAPTER}\`, \`pstack/README.md\` and \`pstack/LICENSE\`.${local} Do not edit it by hand.

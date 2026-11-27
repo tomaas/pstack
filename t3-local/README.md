@@ -11,7 +11,7 @@ The branch has two parts. The first is in upstream's own shape and could go to c
 | Path | Part | What it is |
 | --- | --- | --- |
 | `pstack/docs/harness/t3.md` | upstream shape | The T3 adapter. A session reads the Claude Code adapter, then this one, which wins where they differ. |
-| `scripts/generate-pstack-t3-tree.mjs`, `scripts/test/` | upstream shape | Renders `harness/pstack/t3/` from `pstack/` and both adapters, with `t3-local/` when it exists. `--check` fails on a stale tree, a patch that no longer applies, or a Cursor name with no adapter row. |
+| `scripts/generate-pstack-t3-tree.mjs`, `scripts/test/` | upstream shape | Renders `harness/pstack/t3/` from `pstack/` and both adapters, and with `--overlay t3-local` this fork's patches and extras. `--check` fails on a stale tree, a patch that no longer applies, or a Cursor name with no adapter row. |
 | `harness/pstack/t3/` | upstream shape | The generated tree that `t3-local/install.sh` installs. Committed. Never edit it by hand. |
 | `t3-local/patches/` | this fork | Local changes, applied to the generated tree only. |
 | `t3-local/extra/` | this fork | Skills from other cursor/plugins plugins that pstack calls, vendored verbatim. |
@@ -37,7 +37,7 @@ Then run `/setup-pstack` once. In T3 it writes `~/.claude/rules/pstack-models.md
 
 1. Merge cursor/plugins `main` into this fork's `main`: GitHub's "Sync fork" button, or `git fetch upstream && git merge upstream/main` with `upstream` set to cursor/plugins.
 2. On `t3`: `git fetch origin && git merge origin/main`.
-3. `node scripts/generate-pstack-harness-trees.mjs && node scripts/generate-pstack-t3-tree.mjs`. A failure names what to fix: a patch whose context changed upstream, or a new Cursor name that needs a row in `pstack/docs/harness/t3.md`. Rework the patch or add the row, never an upstream file.
+3. `node scripts/generate-pstack-harness-trees.mjs && node scripts/generate-pstack-t3-tree.mjs --overlay t3-local`. A failure names what to fix: a patch whose context changed upstream, or a new Cursor name that needs a row in `pstack/docs/harness/t3.md`. Rework the patch or add the row, never an upstream file.
 4. Refresh the extras (see Extras), then `t3-local/check`. It checks both trees, that only T3 layer files differ from `origin/main` (set `UPSTREAM_REF` for another ref), and runs the tests.
 5. Commit the regenerated trees.
 
@@ -59,7 +59,7 @@ pstack calls a few skills that ship in other cursor/plugins plugins. An extra is
 | --- | --- | --- |
 | `deslop` | `cursor-team-kit/skills/deslop` (MIT, Cursor), at the commit in `t3-local/extra/SOURCES` | poteto-mode runs `/deslop` before every commit, and the T3 install has no `cursor-team-kit`. |
 
-To refresh on a sync: `cp cursor-team-kit/skills/deslop/SKILL.md t3-local/extra/deslop/SKILL.md && cp cursor-team-kit/LICENSE t3-local/extra/LICENSE-cursor-team-kit`, write the merged cursor/plugins commit into `t3-local/extra/SOURCES` when either file changed, then run `node scripts/generate-pstack-t3-tree.mjs`.
+To refresh on a sync: `cp cursor-team-kit/skills/deslop/SKILL.md t3-local/extra/deslop/SKILL.md && cp cursor-team-kit/LICENSE t3-local/extra/LICENSE-cursor-team-kit`, write the merged cursor/plugins commit into `t3-local/extra/SOURCES` when either file changed, then run `node scripts/generate-pstack-t3-tree.mjs --overlay t3-local`.
 
 ## Credit
 

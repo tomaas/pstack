@@ -10,6 +10,7 @@ on:
       - "pstack/**"
       - "harness/**"
       - "scripts/**"
+      - "t3-local/**"
       - ".github/workflows/validate-plugins.yml"
 
 jobs:
@@ -32,10 +33,12 @@ jobs:
         run: node scripts/generate-pstack-harness-trees.mjs --check
 
       - name: Check generated pstack T3 tree
-        run: node scripts/generate-pstack-t3-tree.mjs --check
+        run: node scripts/generate-pstack-t3-tree.mjs --check --overlay t3-local
 
       - name: Test pstack harness generators
         run: node --test scripts/test/*.test.mjs
+        env:
+          PSTACK_T3_OVERLAY: t3-local
 
       - name: Test pstack skill scripts
         run: node --disable-warning=ExperimentalWarning --test pstack/skills/*/scripts/test/*.test.ts

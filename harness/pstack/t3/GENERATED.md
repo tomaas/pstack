@@ -1,10 +1,10 @@
 # pstack T3 Code tree
 
-This folder is generated from `pstack/skills`, `pstack/agents`, `pstack/docs/guide`, `pstack/docs/harness/claude-code.md`, `pstack/docs/harness/t3.md`, `pstack/README.md` and `pstack/LICENSE`. It also carries this fork's patches from `t3-local/patches` and the vendored skills in `t3-local/extra` (see `t3-local/extra/SOURCES`). Do not edit it by hand.
+This folder is generated from `pstack/skills`, `pstack/agents`, `pstack/docs/guide`, `pstack/docs/harness/claude-code.md`, `pstack/docs/harness/t3.md`, `pstack/README.md` and `pstack/LICENSE`. It also carries the local overlay `t3-local`: 3 patches from `t3-local/patches` and 1 extras from `t3-local/extra`. Do not edit it by hand.
 
 T3 Code installs `skills/*` from this folder into `~/.claude/skills` and `~/.agents/skills`, or a project's `.claude/skills` and `.agents/skills`. A relative link to a pstack file that the tree leaves out points at that file on GitHub `main` instead. Each one is listed below.
 
-After editing those sources, run `node scripts/generate-pstack-t3-tree.mjs` from the repository root and commit the result.
+After editing those sources, run `node scripts/generate-pstack-t3-tree.mjs --overlay t3-local` from the repository root and commit the result.
 
 ## Rewritten links
 

@@ -7,7 +7,7 @@ UPSTREAM_REF="${UPSTREAM_REF:-origin/main}"
 cd "$ROOT"
 
 node scripts/generate-pstack-harness-trees.mjs --check
-node scripts/generate-pstack-t3-tree.mjs --check
+node scripts/generate-pstack-t3-tree.mjs --check --overlay t3-local
 
 if ! git rev-parse --verify --quiet "$UPSTREAM_REF^{commit}" >/dev/null; then
   printf 'FAIL no %s ref: fetch it, or set UPSTREAM_REF to the cursor/plugins main you synced\n' "$UPSTREAM_REF"
@@ -22,4 +22,4 @@ if [[ -n "$changed" ]]; then
 fi
 printf 'only T3 layer files differ from %s\n' "$UPSTREAM_REF"
 
-node --test scripts/test/*.test.mjs t3-local/test/*.test.mjs
+PSTACK_T3_OVERLAY=t3-local node --test scripts/test/*.test.mjs t3-local/test/*.test.mjs

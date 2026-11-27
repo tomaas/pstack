@@ -164,8 +164,9 @@ for (const [path, entry] of files) {
 for (const link of dangling) console.log(`FAIL ${link}`);
 if (dangling.length > 0) process.exit(1);
 
-// This script owns README.md and the claude-code tree. scripts/generate-pstack-t3-tree.mjs owns t3/.
-const owned = (path) => path === "README.md" || path.startsWith(`${TREE}/`);
+// This script owns everything under harness/pstack/ except t3/, which scripts/generate-pstack-t3-tree.mjs owns.
+const T3 = "t3";
+const owned = (path) => !path.startsWith(`${T3}/`);
 if (process.argv.includes("--check")) {
   const onDisk = new Map(
     existsSync(OUT) ? walk(OUT).map((path) => [relative(OUT, path), file(path)]).filter(([path]) => owned(path)) : [],
@@ -181,7 +182,9 @@ if (process.argv.includes("--check")) {
   }
   console.log("harness/pstack is up to date.");
 } else {
-  rmSync(join(OUT, TREE), { recursive: true, force: true });
+  for (const name of existsSync(OUT) ? readdirSync(OUT) : []) {
+    if (name !== T3) rmSync(join(OUT, name), { recursive: true, force: true });
+  }
   for (const [path, { bytes, executable }] of rendered) {
     mkdirSync(dirname(join(OUT, path)), { recursive: true });
     writeFileSync(join(OUT, path), bytes);

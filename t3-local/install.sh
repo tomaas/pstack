@@ -27,7 +27,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ ! -f "$SOURCE/poteto-mode/SKILL.md" ]]; then
-  printf 'no generated tree at %s: run node scripts/generate-pstack-t3-tree.mjs\n' "$SOURCE" >&2
+  printf 'no generated tree at %s: run node scripts/generate-pstack-t3-tree.mjs --overlay t3-local\n' "$SOURCE" >&2
   exit 66
 fi
 
