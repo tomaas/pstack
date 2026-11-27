@@ -20,7 +20,7 @@ const README = `# pstack harness tree
 
 This folder is generated from \`pstack/skills\`, \`pstack/agents\`, \`pstack/${GUIDE}\`, \`pstack/${ADAPTER}\`, \`pstack/README.md\`, \`pstack/LICENSE\`, and \`pstack/plugin.json\`. Do not edit it by hand.
 
-Cursor uses \`pstack/\` directly, and Claude Code installs \`${TREE}/\`. The tree leaves out the rest of \`pstack/\`, such as \`pstack/automations\` and \`pstack/assets\`. A relative link to a pstack file that the tree leaves out points at that file on GitHub \`main\` instead.
+Cursor uses \`pstack/\` directly, and Claude Code installs \`${TREE}/\`. The tree leaves out the rest of \`pstack/\`, such as \`pstack/automations\` and \`pstack/assets\`. A relative link to a pstack file that the tree leaves out points at that file on GitHub \`main\` instead. T3 Code installs \`t3/\`, which \`node scripts/generate-pstack-t3-tree.mjs\` renders.
 
 After editing those sources, run \`${COMMAND}\` from the repository root and commit the result.
 `;
@@ -164,8 +164,12 @@ for (const [path, entry] of files) {
 for (const link of dangling) console.log(`FAIL ${link}`);
 if (dangling.length > 0) process.exit(1);
 
+// This script owns README.md and the claude-code tree. scripts/generate-pstack-t3-tree.mjs owns t3/.
+const owned = (path) => path === "README.md" || path.startsWith(`${TREE}/`);
 if (process.argv.includes("--check")) {
-  const onDisk = new Map(existsSync(OUT) ? walk(OUT).map((path) => [relative(OUT, path), file(path)]) : []);
+  const onDisk = new Map(
+    existsSync(OUT) ? walk(OUT).map((path) => [relative(OUT, path), file(path)]).filter(([path]) => owned(path)) : [],
+  );
   const drifted = [...new Set([...rendered.keys(), ...onDisk.keys()])].sort().filter((path) => {
     const [want, have] = [rendered.get(path), onDisk.get(path)];
     return !want || !have || !want.bytes.equals(have.bytes) || want.executable !== have.executable;
@@ -177,7 +181,7 @@ if (process.argv.includes("--check")) {
   }
   console.log("harness/pstack is up to date.");
 } else {
-  rmSync(OUT, { recursive: true, force: true });
+  rmSync(join(OUT, TREE), { recursive: true, force: true });
   for (const [path, { bytes, executable }] of rendered) {
     mkdirSync(dirname(join(OUT, path)), { recursive: true });
     writeFileSync(join(OUT, path), bytes);
