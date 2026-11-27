@@ -35,7 +35,7 @@ jobs:
         run: node scripts/generate-pstack-t3-tree.mjs --check
 
       - name: Test pstack harness generators
-        run: node --test scripts/test/
+        run: node --test scripts/test/*.test.mjs
 
       - name: Test pstack skill scripts
         run: node --disable-warning=ExperimentalWarning --test pstack/skills/*/scripts/test/*.test.ts

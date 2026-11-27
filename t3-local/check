@@ -22,4 +22,4 @@ if [[ -n "$changed" ]]; then
 fi
 printf 'only T3 layer files differ from %s\n' "$UPSTREAM_REF"
 
-node --test scripts/test/ t3-local/test/
+node --test scripts/test/*.test.mjs t3-local/test/*.test.mjs
